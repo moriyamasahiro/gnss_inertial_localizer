@@ -53,33 +53,22 @@ class ekf
       float threshold[16] = {0.01, 0.01, 0.01, 0, 0, 0, 0.01, 0.01, 0.01, 0.01, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001};
 
       Eigen::MatrixXf bias;
-      
+
       map<string,vector<float>> anntena_pos;
 
 
     public:
       ekf();
 
-      void initialize(sensor_msgs::Imu imu);
-      void initialize(const nav_msgs::OdometryConstPtr &lgnss, const nav_msgs::OdometryConstPtr &rgnss);
-
       void predict_state();
       void predict_state(float accel_x, float accel_y, float accel_z, float gyro_x, float gyro_y, float gyro_z, ros::Time t);
       void predict_state(ros::Time t);
-      Eigen::VectorXf f();
-      void get_jaccobian_f();
-      void get_jaccobian_h_with_lgnss();
-      void get_jaccobian_h_with_rgnss();
-      void get_jaccobian_h(string frame_id);
-      void get_jaccobian_h_imu_init();
-      void get_jaccobian_h_gnss_init();
+      Eigen::MatrixXf f();
+      Eigen::MatrixXf get_jaccobian_f();
+      Eigen::MatrixXf get_jaccobian_h(string frame_id);
       Eigen::MatrixXf get_KalmanGain();
       Eigen::MatrixXf get_KalmanGain_init(int flag);
       void update_state(string frame_id);
-      void update_state_with_lgnss();
-      void update_state_with_lgnss(double longitude, double latitude, double altitude, float x_cov, float y_cov, float z_cov);
-      void update_state_with_rgnss();
-      void update_state_with_rgnss(double longitude, double latitude, double altitude, float x_cov, float y_cov, float z_cov);
       void set_time();
       void set_time(ros::Time t);
       void debug_msg();

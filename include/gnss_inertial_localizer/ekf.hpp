@@ -65,11 +65,12 @@ class ekf
       void predict_state();
       void predict_state(float accel_x, float accel_y, float accel_z, float gyro_x, float gyro_y, float gyro_z, ros::Time t);
       void predict_state(ros::Time t);
-      Eigen::VectorXf f();
-      void get_jaccobian_f();
+      Eigen::MatrixXf f();
+      Eigen::MatrixXf get_jaccobian_f();
       void get_jaccobian_h_with_lgnss();
       void get_jaccobian_h_with_rgnss();
       void get_jaccobian_h();
+      Eigen::MatrixXf get_jaccobian_h(string frame_id);
       void get_jaccobian_h_imu_init();
       void get_jaccobian_h_gnss_init();
       Eigen::MatrixXf get_KalmanGain();

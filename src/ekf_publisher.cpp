@@ -52,7 +52,7 @@ ekf_publisher::ekf_publisher()
 
    //rsync.reset(new Sync(GnssSyncPolicy(10), rgnss_sub,rgnss_velocity_sub));
    //rsync->registerCallback(boost::bind(&ekf_publisher::rgnss_callback, this, _1, _2));
-   
+
    lsync.reset(new Sync(GnssSyncPolicy(10), lgnss_relpos_sub, lgnss_sub, lgnss_velocity_sub));
    lsync->registerCallback(boost::bind(&ekf_publisher::gnss_callback, this, _1, _2, _3));
 
@@ -85,8 +85,6 @@ void ekf_publisher::initialize_callback(sensor_msgs::Imu imu){
   while(!ekf_publisher::imu_lock()){
     continue;
   }
-
-  ekf_publisher::ekf_->initialize(imu);
   is_initialized = ekf_->is_initialized;
 
   std_msgs::Bool init_bool;
@@ -116,7 +114,7 @@ void ekf_publisher::initialize_callback(const nav_msgs::OdometryConstPtr &lgnss,
   }
 
   //ROS_INFO_STREAM("Wow!!!");
-  ekf_publisher::ekf_->initialize(lgnss, rgnss);
+  //ekf_publisher::ekf_->initialize(lgnss, rgnss);
   //ROS_INFO_STREAM("Wow!!!!!");
   is_initialized = ekf_->is_initialized;
 
@@ -136,7 +134,7 @@ void ekf_publisher::imu_callback(sensor_msgs::Imu imu){
   }
   ekf_publisher::time_lock[0] = imu.header.stamp.sec + imu.header.stamp.nsec * 1e-9;
   //ros::Duration(1).sleep();
-  
+
   if(time_lock[0] == 0){
     ////ROS_INFO_STREAM("Now, gnss_localizer is being initialized!!");
     return;
@@ -148,107 +146,13 @@ void ekf_publisher::imu_callback(sensor_msgs::Imu imu){
 
   ekf_publisher::ekf_->set_ImuVal(imu);
   ekf_publisher::ekf_->predict_state(imu.header.stamp);
-  
+
   ekf_publisher::publish_data();
 
   ekf_publisher::check_state();
 
   ekf_publisher::imu_unlock();
-  
-}
 
-void ekf_publisher::lgnss_callback(const sensor_msgs::NavSatFixConstPtr &lgnss){
-  ////ROS_INFO_STREAM("4");
-  if(!is_initialized){
-    return;
-  }
-  ekf_publisher::time_lock[1] = lgnss->header.stamp.sec + lgnss->header.stamp.nsec * 1e-9;
-
-  ros::Duration(1e-3).sleep();
-
-  while(!ekf_publisher::lgnss_lock()){
-    continue;
-  }
-
-  ekf_publisher::ekf_->set_LGnssVal(lgnss);
-  ekf_publisher::ekf_->predict_state(lgnss->header.stamp);
-  ekf_publisher::ekf_->update_state_with_lgnss();
-
-  ekf_publisher::publish_data();
-
-  ekf_publisher::lgnss_unlock();
-}
-
-void ekf_publisher::lgnss_callback(const sensor_msgs::NavSatFixConstPtr &lgnss, const geometry_msgs::TwistWithCovarianceStampedConstPtr &lgnss_velocity){
-  ROS_INFO_STREAM("5");
-  //if(!is_initialized){
-  if(false){
-    //ROS_INFO_STREAM("Now, gnss_localizer is being initialized!!");
-    return;
-  }
-  ekf_publisher::time_lock[1] = lgnss->header.stamp.sec + lgnss->header.stamp.nsec * 1e-9;
-
-  ros::Duration(1e-3).sleep();
-
-  while(!ekf_publisher::lgnss_lock()){
-    continue;
-  }
-
-  ekf_publisher::ekf_->set_LGnssVal(lgnss, lgnss_velocity);
-  ekf_publisher::ekf_->predict_state(lgnss->header.stamp);
-  ekf_publisher::ekf_->update_state_with_lgnss();
-
-  ekf_publisher::check_state();
-  ekf_publisher::publish_data();
-
-  ekf_publisher::lgnss_unlock();
-}
-
-void ekf_publisher::rgnss_callback(const sensor_msgs::NavSatFixConstPtr &rgnss){
-  //ROS_INFO_STREAM("6");
-  if(!is_initialized){
-    return;
-  }
-  ekf_publisher::time_lock[2] = rgnss->header.stamp.sec + rgnss->header.stamp.nsec * 1e-9;
-
-  ros::Duration(1e-3).sleep();
-
-  while(!ekf_publisher::rgnss_lock()){
-    continue;
-  }
-
-  ekf_publisher::ekf_->predict_state(rgnss->header.stamp);
-  ekf_publisher::ekf_->update_state_with_rgnss();
-
-  ekf_publisher::publish_data();
-
-  ekf_publisher::rgnss_unlock();
-}
-
-void ekf_publisher::rgnss_callback(const sensor_msgs::NavSatFixConstPtr &rgnss, const geometry_msgs::TwistWithCovarianceStampedConstPtr &rgnss_velocity){
-  ROS_INFO_STREAM("7");
-  //if(!is_initialized){
-  if(false){
-    //ROS_INFO_STREAM("Now, gnss_localizer is being initialized!!");
-    return;
-  }
-  ekf_publisher::time_lock[2] = rgnss->header.stamp.sec + rgnss->header.stamp.nsec * 1e-9;
-
-  ros::Duration(1e-3).sleep();
-
-  while(!ekf_publisher::rgnss_lock()){
-    continue;
-  }
-
-  ekf_publisher::ekf_->set_RGnssVal(rgnss, rgnss_velocity);
-  ekf_publisher::ekf_->predict_state(rgnss->header.stamp);
-  ekf_publisher::ekf_->update_state_with_rgnss();
-
-  ekf_publisher::check_state();
-
-  ekf_publisher::publish_data();
-
-  ekf_publisher::rgnss_unlock();
 }
 
 void ekf_publisher::gnss_callback(const nav_msgs::OdometryConstPtr &gnss, const sensor_msgs::NavSatFixConstPtr &gnss_, const geometry_msgs::TwistWithCovarianceStampedConstPtr &gnss_velocity){
@@ -260,7 +164,7 @@ void ekf_publisher::gnss_callback(const nav_msgs::OdometryConstPtr &gnss, const 
     return;
   }
   ekf_publisher::time_lock[1] = gnss->header.stamp.sec + gnss->header.stamp.nsec * 1e-9;
-  
+
     if(time_lock[1] == 0){
     ////ROS_INFO_STREAM("Now, gnss_localizer is being initialized!!");
     return;
@@ -287,12 +191,12 @@ void ekf_publisher::gnss_callback(const nav_msgs::OdometryConstPtr &gnss, const 
 
 void ekf_publisher::image_callback(sensor_msgs::Image image){
   ROS_INFO_STREAM("oops_image");
-  
+
   if(!is_initialized){
     return;
   }
   ekf_publisher::time_lock[3] = image.header.stamp.sec + image.header.stamp.nsec * 1e-9;
-  
+
   if(time_lock[3] == 0){
     ////ROS_INFO_STREAM("Now, gnss_localizer is being initialized!!");
     return;
@@ -307,13 +211,13 @@ void ekf_publisher::image_callback(sensor_msgs::Image image){
 
   ekf_publisher::ekf_->predict_state(image.header.stamp);
 
-  
+
   ekf_publisher::publish_data();
   ekf_publisher::check_state();
 
   ekf_publisher::image_unlock();
-  
-  
+
+
   /////
   ekf_publisher::time_lock[0] = imu.header.stamp.sec + imu.header.stamp.nsec * 1e-9;
   //ros::Duration(1e-3).sleep();

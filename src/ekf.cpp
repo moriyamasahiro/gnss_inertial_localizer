@@ -9,7 +9,7 @@ ekf::ekf(){
   ekf::latitude0 = 0.;
   //initialize state
   struct STATE state;
-  
+
   vector<float> left_pos{0., 0.23, 0.05};
   vector<float> right_pos{0., -0.23, 0.05};
   anntena_pos["/left_gnss"] = left_pos;
@@ -18,7 +18,7 @@ ekf::ekf(){
   state.state = Eigen::MatrixXf::Zero(10,1);
   state.covariance = Eigen::MatrixXf::Identity(10,10)*1e10;
   state.covariance_with_imu = Eigen::MatrixXf::Identity(16,16)*1e10;
-  
+
   state.state(0,0) = 20.3185;
   state.state(1,0) = -165.338;
   state.state(2,0) = -7.3177;
@@ -128,7 +128,7 @@ void ekf::set_time(){
 }
 
 void ekf::set_time(ros::Time t){
-  
+
   ekf::past_time = ekf::current_time;
   ekf::current_time = t;
   //std::cout << ekf::past_time.sec << "." << ekf::past_time.nsec << std::endl;
@@ -138,78 +138,18 @@ float ekf::get_delta(){
   //ros::Time current_time = ekf::current_time;
   //ros::Time past_time = ekf::past_time;
   float delta = (current_time - past_time).toSec();
-  
+
   //ROS_INFO_STREAM(delta);
-  
+
   return delta;
 }
 
-void ekf::initialize(sensor_msgs::Imu imu){
-  ekf::set_ImuInitVal(imu);
-  ekf::predict_state();
-
-  ekf::get_jaccobian_h_imu_init();
-
-  Eigen::MatrixXf z = ekf::observation_imu_init.observation;
-  Eigen::MatrixXf _x =ekf::state.state;
-  Eigen::MatrixXf P_ = ekf::state.covariance;
-
-  Eigen::MatrixXf KG = ekf::get_KalmanGain_init(0);
-
-  Eigen::MatrixXf x = _x + KG *(z - ekf::jaccobian_h_imu_init*_x);
-  Eigen::MatrixXf P = P_ - KG * ekf::jaccobian_h_imu_init * P_;
-
-  ekf::state.state = x;
-  ekf::state.covariance = P;
-
-  ekf::normalize_quaternion();
-  ekf::check_init();
-}
-
-void ekf::initialize(const nav_msgs::OdometryConstPtr &lgnss, const nav_msgs::OdometryConstPtr &rgnss){
-  if(true){
-    return;
-  }
-  ROS_INFO_STREAM("a");
-  ekf::predict_state();
-  ROS_INFO_STREAM("b");
-  //ekf::set_GnssVal(lgnss);
-  ROS_INFO_STREAM("c");
-  //ekf::set_GnssVal(rgnss);
-  ROS_INFO_STREAM("d");
-
-  ekf::get_jaccobian_h_gnss_init();
-  ROS_INFO_STREAM("e");
-
-  Eigen::MatrixXf z = ekf::observation_gnss_init.observation;
-  ROS_INFO_STREAM("f");
-  Eigen::MatrixXf _x =ekf::state.state;
-  ROS_INFO_STREAM("g");
-  Eigen::MatrixXf P_ = ekf::state.covariance;
-  ROS_INFO_STREAM("h");
-
-  Eigen::MatrixXf KG = ekf::get_KalmanGain_init(1);
-  ROS_INFO_STREAM("i");
-
-  Eigen::MatrixXf x = _x + KG *(z - ekf::jaccobian_h_gnss_init*_x);
-  ROS_INFO_STREAM("j");
-  Eigen::MatrixXf P = P_ - KG * ekf::jaccobian_h_gnss_init * P_;
-  ROS_INFO_STREAM("k");
-
-  ekf::state.state = x;
-  ekf::state.covariance = P;
-
-  ekf::normalize_quaternion();
-  ekf::check_init();
-
-}
-
 void ekf::predict_state(){
-  ekf::get_jaccobian_f();
+  Eigen::MatrixXf jaccobian_f = ekf::get_jaccobian_f();
 
   ekf::state.state = ekf::f();
 
-  ekf::state.covariance = (ekf::jaccobian_f)*(ekf::get_delta() * ekf::state.covariance_with_imu)*(ekf::jaccobian_f.transpose());
+  ekf::state.covariance = (jaccobian_f)*(get_delta() * state.covariance_with_imu)*(jaccobian_f.transpose()) + state.covariance;
 
   ekf::normalize_quaternion();
 }
@@ -221,9 +161,9 @@ void ekf::predict_state(float accel_x, float accel_y, float accel_z, float gyro_
   ekf::past_time = ekf::current_time;
   ekf::current_time = t;
 
-  ekf::get_jaccobian_f();
+  Eigen::MatrixXf jaccobian_f = ekf::get_jaccobian_f();
   ekf::state.state = ekf::f();
-  ekf::state.covariance = (ekf::jaccobian_f)*(ekf::state.covariance_with_imu)*(ekf::jaccobian_f.transpose());
+  ekf::state.covariance = (jaccobian_f)*(ekf::state.covariance_with_imu)*(jaccobian_f.transpose()) + ekf::state.covariance;
 
   ekf::normalize_quaternion();
 }
@@ -238,14 +178,14 @@ void ekf::predict_state(ros::Time t){
     //is_started = true;
   }
 
-  ekf::get_jaccobian_f();
+  Eigen::MatrixXf jaccobian_f = get_jaccobian_f();
   ekf::state.state = ekf::f();
-  ekf::state.covariance = (ekf::jaccobian_f)*(ekf::get_delta() * ekf::state.covariance_with_imu)*(ekf::jaccobian_f.transpose());
+  ekf::state.covariance = (jaccobian_f)*(get_delta() * state.covariance_with_imu)*(jaccobian_f.transpose()) + state.covariance;
 
   ekf::normalize_quaternion();
 }
 
-Eigen::VectorXf ekf::f(){
+Eigen::MatrixXf ekf::f(){
   float dt = ekf::get_delta();
   Eigen::MatrixXf s = ekf::state.state;
   Eigen::VectorXf u = ekf::imu_output;
@@ -273,7 +213,7 @@ Eigen::VectorXf ekf::f(){
        att(0,0), att(3,0), -att(2,0),
        -att(3,0), att(0,0), att(1,0),
        att(2,0), -att(1,0), att(0,0);
-       
+
   G << -att(1,0), -att(2,0), -att(3,0),
        att(0,0), att(3,0), -att(2,0),
        -att(3,0), att(0,0), att(1,0),
@@ -311,13 +251,13 @@ Eigen::MatrixXf ekf::get_KalmanGain(){
   Eigen::MatrixXf P_ = ekf::state.covariance;
   Eigen::MatrixXf C = ekf::jaccobian_h;
   Eigen::MatrixXf R = ekf::observation.covariance;
-  
-  ROS_INFO_STREAM((C * P_ * C.transpose() + R).inverse());	
-  
+
+  ROS_INFO_STREAM((C * P_ * C.transpose() + R).inverse());
+
   Eigen::MatrixXf KG = P_ * C.transpose() * (C * P_ * C.transpose() + R).inverse();
-  
-  //ROS_INFO_STREAM(KG);	
-  
+
+  //ROS_INFO_STREAM(KG);
+
   return KG;
 }
 
@@ -342,7 +282,7 @@ Eigen::MatrixXf ekf::get_KalmanGain_init(int flag){
 
 
 void ekf::update_state(string frame_id){
-  ROS_INFO_STREAM("oops");	
+  ROS_INFO_STREAM("oops");
   ekf::get_jaccobian_h(frame_id);
 
   Eigen::MatrixXf z = ekf::observation.observation;
@@ -359,97 +299,6 @@ void ekf::update_state(string frame_id){
   //ROS_INFO_STREAM("jacc: " << jaccobian_h.rows() << ", " << jaccobian_h.cols());
   //ROS_INFO_STREAM("z: " << z.rows() << ", " << z.cols());
   Eigen::MatrixXf x = _x + KG * (z - ekf::jaccobian_h*_x);
-  Eigen::MatrixXf P = P_ - KG * ekf::jaccobian_h * P_;
-
-  ekf::state.state = x;
-  ekf::state.covariance = P;
-
-  ekf::normalize_quaternion();
-}
-
-void ekf::update_state_with_lgnss(){
-  ekf::get_jaccobian_h_with_lgnss();
-
-  Eigen::MatrixXf z = ekf::observation.observation;
-
-  ROS_INFO_STREAM("observation: " << z(0,0) << ", " << z(1,0) << ", " << z(2,0)<< ", " << z(3,0) << ", " << z(4,0)<< ", " << z(5,0));
-
-  Eigen::MatrixXf _x =ekf::state.state;
-
-  Eigen::MatrixXf P_ = ekf::state.covariance;
-
-  Eigen::MatrixXf KG = ekf::get_KalmanGain();
-
-  Eigen::MatrixXf x = _x + KG *(z - ekf::jaccobian_h*_x);
-  Eigen::MatrixXf P = P_ - KG * ekf::jaccobian_h * P_;
-
-  ekf::state.state = x;
-  ekf::state.covariance = P;
-
-  ekf::normalize_quaternion();
-}
-
-void ekf::update_state_with_lgnss(double longitude, double latitude, double altitude, float x_cov, float y_cov, float z_cov){
-  ekf::get_jaccobian_h_with_lgnss();
-
-  Eigen::Vector3f xyz = ekf::transform_enu2xyz(longitude, latitude, altitude);
-  ekf::observation.observation << xyz[0], xyz[1];
-  ekf::observation.covariance << x_cov, 0.,
-                                 0., y_cov;
-
-  Eigen::MatrixXf z = ekf::observation.observation;
-
-  Eigen::MatrixXf _x =ekf::state.state;
-
-  Eigen::MatrixXf P_ = ekf::state.covariance;
-
-  Eigen::MatrixXf KG = ekf::get_KalmanGain();
-
-  Eigen::MatrixXf x = _x + KG *(z - ekf::jaccobian_h*_x);
-  Eigen::MatrixXf P = P_ - KG * ekf::jaccobian_h * P_;
-
-  ekf::state.state = x;
-  ekf::state.covariance = P;
-
-  ekf::normalize_quaternion();
-}
-
-void ekf::update_state_with_rgnss(){
-  ekf::get_jaccobian_h_with_rgnss();
-
-  Eigen::MatrixXf z = ekf::observation.observation;
-
-  ROS_INFO_STREAM("observation: " << z(0,0) << ", " << z(1,0) << ", " << z(2,0)<< ", " << z(3,0) << ", " << z(4,0)<< ", " << z(5,0));
-
-  Eigen::MatrixXf _x =ekf::state.state;
-  Eigen::MatrixXf P_ = ekf::state.covariance;
-
-  Eigen::MatrixXf KG = ekf::get_KalmanGain();
-
-  Eigen::MatrixXf x = _x + KG *(z - ekf::jaccobian_h*_x);
-  Eigen::MatrixXf P = P_ - KG * ekf::jaccobian_h * P_;
-
-  ekf::state.state = x;
-  ekf::state.covariance = P;
-
-  ekf::normalize_quaternion();
-}
-
-void ekf::update_state_with_rgnss(double longitude, double latitude, double altitude, float x_cov, float y_cov, float z_cov){
-  ekf::get_jaccobian_h_with_rgnss();
-
-  Eigen::Vector3f xyz = ekf::transform_enu2xyz(longitude, latitude, altitude);
-  ekf::observation.observation << xyz[0], xyz[1];
-  ekf::observation.covariance << x_cov, 0.,
-                                 0., y_cov;
-
-  Eigen::MatrixXf z = ekf::observation.observation;
-  Eigen::MatrixXf _x =ekf::state.state;
-  Eigen::MatrixXf P_ = ekf::state.covariance;
-
-  Eigen::MatrixXf KG = ekf::get_KalmanGain();
-
-  Eigen::MatrixXf x = _x + KG *(z - ekf::jaccobian_h*_x);
   Eigen::MatrixXf P = P_ - KG * ekf::jaccobian_h * P_;
 
   ekf::state.state = x;
@@ -571,7 +420,7 @@ void ekf::set_GnssVal(const nav_msgs::OdometryConstPtr &gnss, const sensor_msgs:
 	OBSERVATION observation;
     Eigen::MatrixXf gnss_output(6,1);
     Eigen::MatrixXf gnss_covariance(6,6);
-  
+
     gnss_output << gnss->pose.pose.position.x, gnss->pose.pose.position.y, gnss->pose.pose.position.z, gnss_velocity->twist.twist.linear.x, gnss_velocity->twist.twist.linear.y, gnss_velocity->twist.twist.linear.z;
     gnss_covariance << gnss->pose.covariance[0], 0., 0., 0., 0., 0.,
                        0., gnss->pose.covariance[7], 0., 0., 0., 0.,
@@ -579,22 +428,22 @@ void ekf::set_GnssVal(const nav_msgs::OdometryConstPtr &gnss, const sensor_msgs:
                        0., 0., 0., gnss_velocity->twist.covariance[0], 0., 0.,
                        0., 0., 0., 0., gnss_velocity->twist.covariance[7], 0.,
                        0., 0., 0., 0., 0., gnss_velocity->twist.covariance[14];
-    
+
     //gnss_output << gnss_velocity->twist.twist.linear.x, gnss_velocity->twist.twist.linear.y, gnss_velocity->twist.twist.linear.z;
     //gnss_covariance << gnss_velocity->twist.covariance[0], 0., 0.,
     //                  0., gnss_velocity->twist.covariance[7], 0.,
     //                   0., 0., gnss_velocity->twist.covariance[14];
-                       
+
     //gnss_output << gnss->pose.pose.position.x, gnss->pose.pose.position.y, gnss->pose.pose.position.z;
     //gnss_covariance << gnss->pose.covariance[0], 0., 0.,
     //                   0., gnss->pose.covariance[7], 0.,
     //                   0., 0., gnss->pose.covariance[14];
-                       
-                       
+
+
 
     ekf::observation.observation = gnss_output;
     ekf::observation.covariance = gnss_covariance;
-    
+
     is_started = true;
   }
 }

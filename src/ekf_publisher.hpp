@@ -64,13 +64,13 @@ class ekf_publisher
       string rgnss_velocity_topic;
       string lgnss_relpos_topic;
       string rgnss_relpos_topic;
-	  string image_topic;
+	    string image_topic;
 
       std::vector<double> time_lock = {1e10, 1e10, 1e10, 1e10};
 
       ros::Subscriber imu_sub;
       ros::Subscriber init_imu_sub;
-	  ros::Subscriber image_sub;
+	    ros::Subscriber image_sub;
 
       //message_filters::Subscriber<sensor_msgs::NavSatFix> lgnss_sub(nh, lgnss_topic, 1);
       //message_filters::Subscriber<geometry_msgs::TwistWithCovarianceStamped> lgnss_velocity_sub(nh, lgnss_velocity_topic, 1);
@@ -94,22 +94,18 @@ class ekf_publisher
       void initialize_callback(const nav_msgs::OdometryConstPtr &lgnss, const nav_msgs::OdometryConstPtr &rgnss);
       void test_callback(sensor_msgs::Imu imu);
       void imu_callback(sensor_msgs::Imu imu);
-      void lgnss_callback(const sensor_msgs::NavSatFixConstPtr &lgnss);
-	  void rgnss_callback(const sensor_msgs::NavSatFixConstPtr &rgnss);
-	  void lgnss_callback(const sensor_msgs::NavSatFixConstPtr &lgnss, const geometry_msgs::TwistWithCovarianceStampedConstPtr &lgnss_velocity);
-	  void rgnss_callback(const sensor_msgs::NavSatFixConstPtr &rgnss, const geometry_msgs::TwistWithCovarianceStampedConstPtr &rgnss_velocity);
-	  void gnss_callback(const nav_msgs::OdometryConstPtr &gnss, const sensor_msgs::NavSatFixConstPtr &gnss_, const geometry_msgs::TwistWithCovarianceStampedConstPtr &gnss_velocity);
-	  void image_callback(sensor_msgs::Image image);
+	    void gnss_callback(const nav_msgs::OdometryConstPtr &gnss, const sensor_msgs::NavSatFixConstPtr &gnss_, const geometry_msgs::TwistWithCovarianceStampedConstPtr &gnss_velocity);
+	    void image_callback(sensor_msgs::Image image);
 
-	  bool imu_lock();
-	  bool lgnss_lock();
-	  bool rgnss_lock();
-	  bool image_lock();
+	    bool imu_lock();
+	    bool lgnss_lock();
+	    bool rgnss_lock();
+	    bool image_lock();
 
-	  void imu_unlock();
-	  void lgnss_unlock();
-	  void rgnss_unlock();
-	  void image_unlock();
+	    void imu_unlock();
+	    void lgnss_unlock();
+	    void rgnss_unlock();
+	    void image_unlock();
       void publish_data();
       void publish_tf(Eigen::MatrixXf state, ros::Time t);
       void publish_odom(Eigen::MatrixXf state, ros::Time t);
